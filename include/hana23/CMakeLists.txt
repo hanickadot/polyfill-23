@@ -1,0 +1,1 @@
+add_custom_target(regenerate COMMAND cmake "-DSOURCE_DIRECTORY=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/regenerate.cmake" WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} SOURCES move_only_function.hpp.in templates/move_only_function.in)

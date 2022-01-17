@@ -1,0 +1,20 @@
+#ifndef HANA23_MOVE_ONLY_FUNCTION_HPP
+#define HANA23_MOVE_ONLY_FUNCTION_HPP
+
+#include "utility/move_only_function.hpp"
+#include <iostream>
+#include <memory>
+#include <type_traits>
+#include <utility>
+#include <cassert>
+#include <cstddef>
+
+namespace hana23 {
+
+template <typename T> class move_only_function;
+
+${result}
+
+} // namespace hana23
+
+#endif
