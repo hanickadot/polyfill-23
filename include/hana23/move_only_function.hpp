@@ -167,8 +167,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -360,8 +360,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -553,8 +553,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -746,8 +746,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -939,8 +939,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -1132,8 +1132,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -1325,8 +1325,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -1518,8 +1518,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -1711,8 +1711,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -1904,8 +1904,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -2097,8 +2097,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}
@@ -2290,8 +2290,8 @@ public:
 	template <class F> move_only_function & operator=(F && f) {
 		release();
 
-		vtable = &vtable_for<F>;
-		vtable_for<F>.create_object_with(storage, std::forward<F>(f));
+		vtable = &vtable_for<std::decay_t<F>>;
+		vtable_for<std::decay_t<F>>.create_object_with(storage, std::forward<F>(f));
 
 		return *this;
 	}

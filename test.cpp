@@ -1,4 +1,5 @@
 #include <hana23/move_only_function.hpp>
+#include <memory>
 #include <cstdio>
 
 struct foo {
@@ -16,11 +17,11 @@ int main() {
 	printf("%d\n", f());
 	printf("%d\n", f());
 
-	// using ptr = int (foo::*)();
-	//
-	// ptr p = &foo::b;
-	//
-	// hana23::move_only_function<int(foo)> f2 = p;
-	//
-	// printf("%d\n", f2(foo()));
+	using ptr = int (foo::*)();
+
+	ptr p = &foo::b;
+
+	hana23::move_only_function<int(foo)> f2 = p;
+
+	printf("%d\n", f2(foo()));
 }
