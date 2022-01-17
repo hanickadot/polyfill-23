@@ -4,8 +4,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) ${CV
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) ${CV} ${REF} noexcept(${NOEXCEPT})>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(${CV} storage_t & obj, Args... args) const noexcept(${NOEXCEPT}) = 0;

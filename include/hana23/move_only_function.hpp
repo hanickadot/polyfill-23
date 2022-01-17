@@ -19,8 +19,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...)   noexcept(false)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call( storage_t & obj, Args... args) const noexcept(false) = 0;
@@ -214,8 +212,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...)   noexcept(true)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call( storage_t & obj, Args... args) const noexcept(true) = 0;
@@ -409,8 +405,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) const  noexcept(false)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(const storage_t & obj, Args... args) const noexcept(false) = 0;
@@ -604,8 +598,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) const  noexcept(true)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(const storage_t & obj, Args... args) const noexcept(true) = 0;
@@ -799,8 +791,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...)  & noexcept(false)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call( storage_t & obj, Args... args) const noexcept(false) = 0;
@@ -994,8 +984,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...)  & noexcept(true)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call( storage_t & obj, Args... args) const noexcept(true) = 0;
@@ -1189,8 +1177,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) const & noexcept(false)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(const storage_t & obj, Args... args) const noexcept(false) = 0;
@@ -1384,8 +1370,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) const & noexcept(true)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(const storage_t & obj, Args... args) const noexcept(true) = 0;
@@ -1579,8 +1563,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...)  && noexcept(false)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call( storage_t & obj, Args... args) const noexcept(false) = 0;
@@ -1774,8 +1756,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...)  && noexcept(true)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call( storage_t & obj, Args... args) const noexcept(true) = 0;
@@ -1969,8 +1949,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) const && noexcept(false)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(const storage_t & obj, Args... args) const noexcept(false) = 0;
@@ -2164,8 +2142,6 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	template <typename VT> static constexpr bool is_callable_from = hana23::_is_invocable<R(Args...) const && noexcept(true)>::template from_v<VT>;
 
 	using storage_t = _move_only_function_storage_t;
-	static constexpr bool is_noexcept = false;
-	static constexpr bool is_const = false;
 
 	struct vtable_t {
 		virtual R call(const storage_t & obj, Args... args) const noexcept(true) = 0;
