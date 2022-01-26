@@ -4,7 +4,11 @@ cmake_policy(SET CMP0092 NEW) # default warning /W3 is disabled as we are using 
 
 project(hana23 VERSION 0.1 LANGUAGES CXX)
 
+include(CTest)
+
 add_subdirectory(include)
 
-add_executable(hana-test EXCLUDE_FROM_ALL test.cpp)
-target_link_libraries(hana-test PRIVATE hana23)
+if(BUILD_TESTING)
+    add_executable(hana-test test.cpp)
+    target_link_libraries(hana-test PRIVATE hana23)
+endif()

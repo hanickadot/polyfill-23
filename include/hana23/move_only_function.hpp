@@ -2,6 +2,7 @@
 #define HANA23_MOVE_ONLY_FUNCTION_HPP
 
 #include "utility/move_only_function.hpp"
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <type_traits>

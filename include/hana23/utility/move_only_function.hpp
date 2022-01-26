@@ -7,6 +7,8 @@
 
 namespace hana23 {
 
+using std::size_t;
+
 // is in_place
 
 constexpr inline size_t _move_only_function_buffer_size = sizeof(void *);
