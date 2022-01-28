@@ -22,9 +22,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call( storage_t & obj, Args... args) const noexcept(false) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t( storage_t & obj, Args... args) noexcept(false);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -44,18 +48,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(false) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(false) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -74,25 +77,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(false) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(false) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -215,9 +221,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call( storage_t & obj, Args... args) const noexcept(true) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t( storage_t & obj, Args... args) noexcept(true);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -237,18 +247,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(true) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(true) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -267,25 +276,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...)   no
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(true) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(true) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -408,9 +420,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call(const storage_t & obj, Args... args) const noexcept(false) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t(const storage_t & obj, Args... args) noexcept(false);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -430,18 +446,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(false) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(false) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -460,25 +475,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(false) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(false) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -601,9 +619,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call(const storage_t & obj, Args... args) const noexcept(true) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t(const storage_t & obj, Args... args) noexcept(true);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -623,18 +645,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(true) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(true) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -653,25 +674,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(true) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(true) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -794,9 +818,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call( storage_t & obj, Args... args) const noexcept(false) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t( storage_t & obj, Args... args) noexcept(false);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -816,18 +844,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(false) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(false) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -846,25 +873,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(false) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(false) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -987,9 +1017,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call( storage_t & obj, Args... args) const noexcept(true) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t( storage_t & obj, Args... args) noexcept(true);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -1009,18 +1043,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(true) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(true) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -1039,25 +1072,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  & n
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(true) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(true) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -1180,9 +1216,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call(const storage_t & obj, Args... args) const noexcept(false) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t(const storage_t & obj, Args... args) noexcept(false);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -1202,18 +1242,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(false) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(false) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -1232,25 +1271,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(false) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(false) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -1373,9 +1415,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call(const storage_t & obj, Args... args) const noexcept(true) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t(const storage_t & obj, Args... args) noexcept(true);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -1395,18 +1441,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(true) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(true) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -1425,25 +1470,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(true) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(true) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -1566,9 +1614,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call( storage_t & obj, Args... args) const noexcept(false) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t( storage_t & obj, Args... args) noexcept(false);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -1588,18 +1640,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(false) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(false) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -1618,25 +1669,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(false) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(false) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -1759,9 +1813,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call( storage_t & obj, Args... args) const noexcept(true) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t( storage_t & obj, Args... args) noexcept(true);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -1781,18 +1839,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(true) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(true) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -1811,25 +1868,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...)  && 
 		}
 
 		// these functions needs to be virtual
-		R call( storage_t & obj, Args... args) const noexcept(true) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = []( storage_t & obj, Args... args) noexcept(true) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast< Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -1952,9 +2012,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call(const storage_t & obj, Args... args) const noexcept(false) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t(const storage_t & obj, Args... args) noexcept(false);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -1974,18 +2038,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(false) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(false) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -2004,25 +2067,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(false) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(false) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
@@ -2145,9 +2211,13 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 	using storage_t = _move_only_function_storage_t;
 
 	struct vtable_t {
-		virtual R call(const storage_t & obj, Args... args) const noexcept(true) = 0;
-		virtual void move_construct(storage_t & destination, storage_t & source) const = 0;
-		virtual void destroy(storage_t & obj) const = 0;
+		typedef R call_t(const storage_t & obj, Args... args) noexcept(true);
+		typedef void move_construct_t(storage_t & destination, storage_t & source);
+		typedef void destroy_t(storage_t & obj);
+
+		call_t * call;
+		move_construct_t * move_construct;
+		destroy_t * destroy;
 	};
 
 	template <typename Callable> struct short_implementation: vtable_t {
@@ -2167,18 +2237,17 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(true) final {
-			// TODO replace with std::invoke_r
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr short_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			new (&destination) Callable(std::move(*get_pointer(source)));
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(true) -> R {
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			get_pointer(obj)->~Callable();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) { new (&destination) Callable(std::move(*get_pointer(source))); },
+			.destroy = [](storage_t & obj) { get_pointer(obj)->~Callable(); },
+		} { }
 	};
 
 	template <typename Callable> struct allocating_implementation: vtable_t {
@@ -2197,25 +2266,28 @@ template <typename R, typename... Args> class move_only_function<R(Args...) cons
 		}
 
 		// these functions needs to be virtual
-		R call(const storage_t & obj, Args... args) const noexcept(true) final {
-			// it's UB to call moved-out function
-			assert(get_pointer(obj) != nullptr);
-			return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
-		}
+		constexpr allocating_implementation(): vtable_t{
 
-		void move_construct(storage_t & destination, storage_t & source) const final {
-			// it moves pointer owning Callable (no copy) to a new storage
-			new (&destination) callable_ptr(get_pointer(source));
-			// to avoid having two pointers referencing the same place, we need to overwrite rhs
-			get_pointer(source) = nullptr;
-		}
+			.call = [](const storage_t & obj, Args... args) noexcept(true) -> R {
+				// it's UB to call moved-out function
+				assert(get_pointer(obj) != nullptr);
+				if constexpr (std::is_void_v<R>)
+					std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...);
+				else
+					return std::invoke(static_cast<const Callable &>(*get_pointer(obj)), std::forward<Args>(args)...); },
 
-		void destroy(storage_t & obj) const final {
-			// heap destruction
-			delete get_pointer(obj);
-			// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
-			get_pointer(obj).~callable_ptr();
-		}
+			.move_construct = [](storage_t & destination, storage_t & source) {
+				// it moves pointer owning Callable (no copy) to a new storage
+				new (&destination) callable_ptr(get_pointer(source));
+				// to avoid having two pointers referencing the same place, we need to overwrite rhs
+				get_pointer(source) = nullptr; },
+
+			.destroy = [](storage_t & obj) {
+				// heap destruction
+				delete get_pointer(obj);
+				// and destroy storage of pointer (it doesn't destroy the object, only pointer lifetime)
+				get_pointer(obj).~callable_ptr(); },
+		} { }
 	};
 
 	template <typename Callable> static constexpr auto vtable_for = std::conditional_t<_move_only_function_sbo_compatible<Callable>, short_implementation<Callable>, allocating_implementation<Callable>>{};
